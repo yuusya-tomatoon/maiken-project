@@ -3,4 +3,3 @@
 
 とりあえず、このリポジトリに参加ができたらDiscord上でのリアクションをお願いします。
 good mornig everyone!
-git bush
