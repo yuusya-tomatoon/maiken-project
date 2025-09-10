@@ -48,7 +48,7 @@ const upload = multer({ storage: storage });
 // --- 4. APIエンドポイントの定義 ---
 
 // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-// ★ 新しく追加したAPIエンドポイント ★
+// ★ 新しく追加・改良したAPIエンドポイント ★
 // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
 
 /**
@@ -62,6 +62,40 @@ app.get("/meals", async (req, res) => {
     } catch (error) {
         console.error("Meals GET Error:", error);
         res.status(500).send({ message: "献立データの取得中にエラーが発生しました。" });
+    }
+});
+
+/**
+ * 特定の献立データを取得するAPI (献立詳細表示用)
+ */
+app.get("/meals/:mealId", async (req, res) => {
+    try {
+        const { mealId } = req.params;
+        const mealRef = db.collection("meals").doc(mealId);
+        const doc = await mealRef.get();
+        if (!doc.exists) {
+            return res.status(404).send({ message: "献立が見つかりません。" });
+        }
+        res.status(200).json({ id: doc.id, ...doc.data() });
+    } catch (error) {
+        console.error("Meal GET Error:", error);
+        res.status(500).send({ message: "献立データの取得中にエラーが発生しました。" });
+    }
+});
+
+
+/**
+ * 特定献立のコメント一覧を取得するAPI (コメント表示用)
+ */
+app.get("/meals/:mealId/comments", async (req, res) => {
+    try {
+        const { mealId } = req.params;
+        const commentsSnapshot = await db.collection("meals").doc(mealId).collection("comments").orderBy("createdAt", "desc").get();
+        const comments = commentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        res.status(200).json(comments);
+    } catch (error) {
+        console.error("Comments GET Error:", error);
+        res.status(500).send({ message: "コメントデータの取得中にエラーが発生しました。" });
     }
 });
 
@@ -110,7 +144,7 @@ app.post("/reviews", async (req, res) => {
 });
 
 
-// --- 既存のAPIエンドポイント (一部変更) ---
+// --- 既存のAPIエンドポイント ---
 
 /**
  * 新しい献立を登録するAPI (変更なし)
