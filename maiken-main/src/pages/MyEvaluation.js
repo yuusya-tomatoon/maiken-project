@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'; // Firestore関連のimportを追加
+import { db } from '../firebase'; // 作成したfirebase.jsからdbオブジェクトをimport
 
 const MyEvaluation = ({ setCurrentPage }) => {
   const [foodAmounts, setFoodAmounts] = useState({
@@ -21,9 +23,19 @@ const MyEvaluation = ({ setCurrentPage }) => {
     setFoodAmounts({ ...foodAmounts, [dish]: amount });
   };
 
-  const handleEvaluationSubmit = () => {
-    console.log('自分の評価データ:', foodAmounts);
-    setIsCompleted(true);
+  const handleEvaluationSubmit = async () => {
+    // Firebaseにデータを保存する処理
+    try {
+      await addDoc(collection(db, 'evaluations'), {
+        foodAmounts,
+        createdAt: serverTimestamp() // データが作成された日時を記録
+      });
+      console.log('自分の評価データが正常に保存されました。');
+      setIsCompleted(true);
+    } catch (error) {
+      console.error('データの保存中にエラーが発生しました:', error);
+      // エラー処理
+    }
   };
 
   if (isCompleted) {

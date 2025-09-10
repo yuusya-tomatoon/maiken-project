@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import StarRating from '../components/StarRating';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore'; // Firestore関連のimportを追加
+import { db } from '../firebase'; // 作成したfirebase.jsからdbオブジェクトをimport
 
 const Review = ({ setCurrentPage }) => {
   const [reviewData, setReviewData] = useState({
@@ -22,9 +24,19 @@ const Review = ({ setCurrentPage }) => {
     setReviewData({ ...reviewData, [field]: value });
   };
 
-  const handleReviewSubmit = () => {
-    console.log('レビューデータ:', reviewData);
-    setIsCompleted(true);
+  const handleReviewSubmit = async () => {
+    // Firebaseにデータを保存する処理
+    try {
+      await addDoc(collection(db, 'reviews'), {
+        ...reviewData,
+        createdAt: serverTimestamp() // データが作成された日時を記録
+      });
+      console.log('レビューデータが正常に保存されました。');
+      setIsCompleted(true);
+    } catch (error) {
+      console.error('データの保存中にエラーが発生しました:', error);
+      // エラー処理
+    }
   };
 
   if (isCompleted) {
