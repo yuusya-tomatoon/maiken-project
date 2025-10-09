@@ -7,13 +7,8 @@
   font-family: sans-serif;
 }
 
-/* ページタイトルはApp.cssで定義されているものを再利用 */
-/* .page-title { ... } */
-
-/* コメントタイムライン */
 .comment-list {
   position: relative;
-  /* タイムラインの縦線スペース確保 */
   padding-left: 40px;
   border-left: 2px solid #e0e0e0;
 }
@@ -25,22 +20,20 @@
   margin-bottom: 25px;
 }
 
-/* タイムライン上の丸印 */
 .comment-item::before {
   content: '';
   position: absolute;
-  left: -49px; /* (40pxパディング + (線の幅/2)) - (丸の半径) */
+  left: -49px;
   top: 15px;
   width: 12px;
   height: 12px;
   border-radius: 50%;
   background-color: white;
-  border: 2px solid #e74c3c; /* テーマカラーの赤 */
+  border: 2px solid #e74c3c;
   z-index: 1;
 }
 
 .comment-avatar {
-  /* ユーザーのアバター画像がある場合はimgタグに置き換えます */
   width: 45px;
   height: 45px;
   border-radius: 50%;
@@ -48,7 +41,6 @@
   margin-right: 15px;
   flex-shrink: 0;
   margin-top: 5px;
-  /* ユーザーアイコンのプレースホルダー */
   background-image: url('https://placehold.co/45x45/E8A8B5/FFFFFF?text=U');
 }
 
@@ -83,6 +75,49 @@
   margin: 0;
   line-height: 1.6;
   color: #333;
-  white-space: pre-wrap; /* 改行を反映させる */
-  word-break: break-word; /* 長い単語を折り返す */
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ */
+/* ★ コメントのいいね機能のためのスタイルを追加 ★ */
+/* ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ */
+
+.comment-footer {
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
+  gap: 5px; /* アイコンと数字の間隔 */
+}
+
+.like-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  color: #888; /* デフォルトのアイコン色 */
+  transition: color 0.2s, transform 0.2s;
+}
+
+.like-button:hover {
+  transform: scale(1.15);
+  color: #e74c3c;
+}
+
+/* いいね済みの場合のスタイル */
+.like-button.liked {
+  color: #e74c3c; /* テーマカラーの赤 */
+}
+
+.like-button.liked svg {
+    fill: #e74c3c;
+}
+
+.like-count {
+  font-size: 0.9rem;
+  color: #555;
+  font-weight: 500;
+  min-width: 10px;
 }
