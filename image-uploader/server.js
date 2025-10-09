@@ -47,15 +47,10 @@ const upload = multer({ storage: storage });
 
 // --- 4. APIエンドポイントの定義 ---
 
-// ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-// ★ 接続確認用のAPIエンドポイントを追加 ★
-// ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
 /**
  * サーバーの生存確認 (ヘルスチェック) を行うAPI
- * フロントエンドは定期的にこのAPIを呼び出して、サーバーが起動しているかを確認します
  */
 app.get("/health", (req, res) => {
-    // サーバーが正常に動作していることを示すシンプルなJSONを返す
     res.status(200).json({ status: "ok" });
 });
 
@@ -127,7 +122,6 @@ app.get("/reviews", async (req, res) => {
 
 /**
  * 新しいレビューを登録するAPI
- * Review.jsページからのデータを受け取る
  */
 app.post("/reviews", async (req, res) => {
     try {
@@ -156,7 +150,7 @@ app.post("/reviews", async (req, res) => {
 // --- 既存のAPIエンドポイント ---
 
 /**
- * 新しい献立を登録するAPI (変更なし)
+ * 新しい献立を登録するAPI
  */
 app.post("/meals", upload.single("image"), async (req, res) => {
     if (!req.file) {
@@ -182,7 +176,7 @@ app.post("/meals", upload.single("image"), async (req, res) => {
 });
 
 /**
- * いいねを追加/削除するAPI (変更なし)
+ * いいねを追加/削除するAPI
  */
 app.post("/meals/:mealId/like", async (req, res) => {
     const { mealId } = req.params;
@@ -219,7 +213,7 @@ app.post("/meals/:mealId/like", async (req, res) => {
 });
 
 /**
- * コメントを投稿するAPI (変更なし)
+ * コメントを投稿するAPI
  */
 app.post("/meals/:mealId/comments", async (req, res) => {
     const { mealId } = req.params;
@@ -239,6 +233,54 @@ app.post("/meals/:mealId/comments", async (req, res) => {
     } catch (error) {
         console.error("Comment Error:", error);
         res.status(500).send({ message: "コメント投稿中にエラーが発生しました。" });
+    }
+});
+
+// ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+// ★ コメントのいいね機能のためのAPIエンドポイントを追加 ★
+// ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+/**
+ * コメントにいいねを追加/削除するAPI
+ */
+app.post("/meals/:mealId/comments/:commentId/like", async (req, res) => {
+    const { mealId, commentId } = req.params;
+    const { userId } = req.body; // 本来は認証情報から取得
+
+    if (!userId) {
+        return res.status(400).send({ message: "ユーザーIDが必要です。" });
+    }
+
+    const commentRef = db.collection("meals").doc(mealId).collection("comments").doc(commentId);
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            const commentDoc = await transaction.get(commentRef);
+            if (!commentDoc.exists) {
+                throw "コメントが見つかりません。";
+            }
+
+            const data = commentDoc.data();
+            const likedBy = data.likedBy || [];
+            
+            if (likedBy.includes(userId)) {
+                // いいね済みなら削除
+                transaction.update(commentRef, {
+                    likedBy: admin.firestore.FieldValue.arrayRemove(userId),
+                    likeCount: admin.firestore.FieldValue.increment(-1)
+                });
+            } else {
+                // 未いいねなら追加
+                transaction.update(commentRef, {
+                    likedBy: admin.firestore.FieldValue.arrayUnion(userId),
+                    likeCount: admin.firestore.FieldValue.increment(1)
+                });
+            }
+        });
+
+        res.status(200).send({ message: "コメントのいいねを更新しました。" });
+    } catch (error) {
+        console.error("Comment Like Error:", error);
+        res.status(500).send({ message: "コメントのいいね処理中にエラーが発生しました。" });
     }
 });
 
