@@ -70,3 +70,5 @@ function Comments() {
     </div>
   );
 }
+
+export default Comments;
