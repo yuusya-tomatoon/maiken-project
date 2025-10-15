@@ -14,7 +14,7 @@ const API_URL = 'http://localhost:3000';
 function App() {
   const [currentPage, setCurrentPage] = useState('about');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  
+
   // ★ サーバーの接続状態を管理するためのstateを追加
   const [serverStatus, setServerStatus] = useState('connecting'); // 'connecting', 'online', 'offline'
 
@@ -64,12 +64,12 @@ function App() {
   const renderPage = () => {
     // ★ サーバーがオフラインの場合は、どのページでもエラーメッセージを表示
     if (serverStatus === 'offline') {
-        return (
-            <div>
-                <h1 style={{ color: 'red' }}>サーバーに接続できません</h1>
-                <p>バックエンドサーバーが起動しているか確認してください。</p>
-            </div>
-        );
+      return (
+        <div>
+          <h1 style={{ color: 'red' }}>サーバーに接続できません</h1>
+          <p>バックエンドサーバーが起動しているか確認してください。</p>
+        </div>
+      );
     }
 
     switch (currentPage) {
@@ -95,18 +95,18 @@ function App() {
         return <About />;
     }
   };
-  
+
   // ★ 接続状態を示すためのバナーのスタイル
   const statusBannerStyle = {
-      padding: '10px',
-      textAlign: 'center',
-      fontWeight: 'bold',
-      color: 'white',
-      position: 'fixed',
-      width: '100%',
-      top: 0,
-      left: 0,
-      zIndex: 1000,
+    padding: '10px',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    color: 'white',
+    position: 'fixed',
+    width: '100%',
+    top: 0,
+    left: 0,
+    zIndex: 1000,
   };
 
 
@@ -114,14 +114,14 @@ function App() {
     <div className="app-container">
       {/* ★ 接続状態に応じてバナーを表示 */}
       {serverStatus === 'offline' && (
-          <div style={{ ...statusBannerStyle, backgroundColor: '#e74c3c' /* 赤 */ }}>
-              サーバー接続が切断されました
-          </div>
+        <div style={{ ...statusBannerStyle, backgroundColor: '#e74c3c' /* 赤 */ }}>
+          サーバー接続が切断されました
+        </div>
       )}
       {serverStatus === 'connecting' && (
-          <div style={{ ...statusBannerStyle, backgroundColor: '#f39c12' /* オレンジ */ }}>
-              サーバーに接続中...
-          </div>
+        <div style={{ ...statusBannerStyle, backgroundColor: '#f39c12' /* オレンジ */ }}>
+          サーバーに接続中...
+        </div>
       )}
 
       {isSidebarOpen ? (
@@ -138,7 +138,7 @@ function App() {
         </button>
       )}
       <div className="main-content" style={{ paddingTop: serverStatus !== 'online' ? '50px' : '0' }}>
-          {renderPage()}
+        {renderPage()}
       </div>
     </div>
   );

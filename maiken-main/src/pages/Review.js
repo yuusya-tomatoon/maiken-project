@@ -1,22 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import StarRating from '../components/StarRating';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore'; // Firestore関連のimportを追加
 import { db } from '../firebase'; // 作成したfirebase.jsからdbオブジェクトをimport
 
 const Review = ({ setCurrentPage }) => {
   const [reviewData, setReviewData] = useState({
-    dishName: '',
-    rating: 0,
     comment: ''
   });
   const [isReviewButtonEnabled, setIsReviewButtonEnabled] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
 
   useEffect(() => {
-    const allFieldsFilled =
-      reviewData.dishName.trim() !== '' &&
-      reviewData.rating > 0 &&
-      reviewData.comment.trim() !== '';
+    const allFieldsFilled = reviewData.comment.trim() !== '';
     setIsReviewButtonEnabled(allFieldsFilled);
   }, [reviewData]);
 
@@ -54,14 +48,6 @@ const Review = ({ setCurrentPage }) => {
     <div className="screen-container">
       <h2>レビュー</h2>
       <div className="review-step">
-        <div className="review-item">
-          <label>料理</label>
-          <input type="text" value={reviewData.dishName} onChange={(e) => handleReviewChange('dishName', e.target.value)} />
-        </div>
-        <div className="review-item">
-          <label>星 (5段階)</label>
-          <StarRating rating={reviewData.rating} setRating={(value) => handleReviewChange('rating', value)} />
-        </div>
         <div className="review-item">
           <label>コメント</label>
           <textarea value={reviewData.comment} onChange={(e) => handleReviewChange('comment', e.target.value)} maxLength="1000" />
