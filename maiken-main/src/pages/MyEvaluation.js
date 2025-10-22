@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'; // Firestore関連のimportを追加
-import { db } from '../firebase'; // 作成したfirebase.jsからdbオブジェクトをimport
+// import { collection, addDoc, serverTimestamp } from 'firebase/firestore'; // 削除
+// import { db } from '../firebase'; // 削除
 
 const MyEvaluation = ({ setCurrentPage }) => {
   const [foodAmounts, setFoodAmounts] = useState({
@@ -24,21 +24,32 @@ const MyEvaluation = ({ setCurrentPage }) => {
   };
 
   const handleEvaluationSubmit = async () => {
-    // Firebaseにデータを保存する処理
+    // サーバーの /evaluations エンドポイントにデータを送信する処理に変更 (新規エンドポイント)
     try {
-      await addDoc(collection(db, 'evaluations'), {
-        foodAmounts,
-        createdAt: serverTimestamp() // データが作成された日時を記録
+      const response = await fetch('http://localhost:3000/evaluations', { // サーバーURLに合わせて変更してください
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          foodAmounts: foodAmounts,
+        }),
       });
-      console.log('自分の評価データが正常に保存されました。');
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      console.log('自分の評価データが正常にサーバー経由で保存されました。');
       setIsCompleted(true);
     } catch (error) {
       console.error('データの保存中にエラーが発生しました:', error);
-      // エラー処理
+      alert('評価の登録に失敗しました。');
     }
   };
 
   if (isCompleted) {
+    // ... (変更なし)
     return (
       <div className="completion-screen">
         <p>回答終了。<br />結果はカレンダーをご参照ください。</p>
@@ -50,6 +61,7 @@ const MyEvaluation = ({ setCurrentPage }) => {
   }
 
   return (
+    // ... (変更なし)
     <div className="screen-container">
       <h2>自分の評価</h2>
       <p>料理をそれぞれ何割食べたのか</p>

@@ -1,4 +1,4 @@
-// 1. 必要なモジュールを読み込む (No changes)
+// 1. 必要なモジュールを読み込む
 const express = require("express");
 const multer = require("multer");
 const path = require("path");
@@ -8,7 +8,7 @@ const fs = require("fs");
 const admin = require("firebase-admin");
 const cron = require("node-cron");
 
-// 2. Firebase Admin SDKの初期化 (No changes)
+// 2. Firebase Admin SDKの初期化
 // 注意: serviceAccountKey.jsonファイルがserver.jsと同じ階層にあることを確認してください
 let serviceAccount;
 try {
@@ -23,7 +23,7 @@ try {
 const db = admin.firestore();
 
 
-// 3. Expressアプリの初期化 (No changes)
+// 3. Expressアプリの初期化
 const app = express();
 const port = 3000;
 app.use(cors());
@@ -122,27 +122,51 @@ app.get("/reviews", async (req, res) => {
 
 /**
  * 新しいレビューを登録するAPI
+ * 変更点: Review.js の変更に伴い、リクエストボディから 'comment' のみを受け取るように修正
  */
 app.post("/reviews", async (req, res) => {
     try {
-        const { mealType, date, foods, rating, reviewText } = req.body;
+        // Review.jsから送信されるデータは { comment: string } のみ
+        const { comment } = req.body;
 
-        if (!mealType || !date || !foods || rating === undefined) {
-             return res.status(400).send({ message: "必須項目が不足しています。" });
+        if (!comment) {
+            return res.status(400).send({ message: "コメント(comment)が不足しています。" });
         }
 
         const docRef = await db.collection("reviews").add({
-            mealType,
-            date,
-            foods,
-            rating,
-            reviewText,
+            comment,
+            // 既存の他のフィールドはReview.jsの変更に伴い削除
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
         res.status(201).send({ message: "レビューを登録しました。", reviewId: docRef.id });
     } catch (error) {
         console.error("Review POST Error:", error);
         res.status(500).send({ message: "レビューの登録中にエラーが発生しました。" });
+    }
+});
+
+
+/**
+ * 新しい自己評価を登録するAPI (新規追加)
+ * MyEvaluation.jsページからのデータを受け取る
+ */
+app.post("/evaluations", async (req, res) => {
+    try {
+        // MyEvaluation.jsから送信されるデータは { foodAmounts: object }
+        const { foodAmounts } = req.body;
+
+        if (!foodAmounts || Object.keys(foodAmounts).length === 0) {
+            return res.status(400).send({ message: "必須項目が不足しています。(foodAmounts)" });
+        }
+
+        const docRef = await db.collection("evaluations").add({
+            foodAmounts,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        res.status(201).send({ message: "自己評価を登録しました。", evaluationId: docRef.id });
+    } catch (error) {
+        console.error("Evaluation POST Error:", error);
+        res.status(500).send({ message: "自己評価の登録中にエラーが発生しました。" });
     }
 });
 
@@ -236,9 +260,6 @@ app.post("/meals/:mealId/comments", async (req, res) => {
     }
 });
 
-// ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-// ★ コメントのいいね機能のためのAPIエンドポイントを追加 ★
-// ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
 /**
  * コメントにいいねを追加/削除するAPI
  */
@@ -261,7 +282,7 @@ app.post("/meals/:mealId/comments/:commentId/like", async (req, res) => {
 
             const data = commentDoc.data();
             const likedBy = data.likedBy || [];
-            
+
             if (likedBy.includes(userId)) {
                 // いいね済みなら削除
                 transaction.update(commentRef, {
@@ -285,7 +306,7 @@ app.post("/meals/:mealId/comments/:commentId/like", async (req, res) => {
 });
 
 
-// --- 5. 定期的なアーカイブ処理 --- (変更なし)
+// --- 5. 定期的なアーカイブ処理 ---
 cron.schedule('0 3 * * *', async () => {
     console.log('アーカイブ処理を開始します...');
     const archivePeriodDays = 30;
@@ -317,7 +338,7 @@ cron.schedule('0 3 * * *', async () => {
 });
 
 
-// 6. サーバーを起動 (変更なし)
+// 6. サーバーを起動
 app.listen(port, () => {
     console.log(`サーバーがポート${port}で起動しました。 http://localhost:${port}`);
 });
