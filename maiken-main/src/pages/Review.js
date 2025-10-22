@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore'; // Firestore関連のimportを追加
-import { db } from '../firebase'; // 作成したfirebase.jsからdbオブジェクトをimport
+// import { collection, addDoc, serverTimestamp } from 'firebase/firestore'; // 削除
+// import { db } from '../firebase'; // 削除
 
 const Review = ({ setCurrentPage }) => {
   const [reviewData, setReviewData] = useState({
@@ -19,21 +19,32 @@ const Review = ({ setCurrentPage }) => {
   };
 
   const handleReviewSubmit = async () => {
-    // Firebaseにデータを保存する処理
+    // サーバーの /reviews エンドポイントにデータを送信する処理に変更
     try {
-      await addDoc(collection(db, 'reviews'), {
-        ...reviewData,
-        createdAt: serverTimestamp() // データが作成された日時を記録
+      const response = await fetch('http://localhost:3000/reviews', { // サーバーURLに合わせて変更してください
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          comment: reviewData.comment,
+        }),
       });
-      console.log('レビューデータが正常に保存されました。');
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      console.log('レビューデータが正常にサーバー経由で保存されました。');
       setIsCompleted(true);
     } catch (error) {
       console.error('データの保存中にエラーが発生しました:', error);
-      // エラー処理
+      alert('レビューの登録に失敗しました。');
     }
   };
 
   if (isCompleted) {
+    // ... (変更なし)
     return (
       <div className="completion-screen">
         <p>回答終了。<br />結果はカレンダーをご参照ください。</p>
@@ -45,6 +56,7 @@ const Review = ({ setCurrentPage }) => {
   }
 
   return (
+    // ... (変更なし)
     <div className="screen-container">
       <h2>レビュー</h2>
       <div className="review-step">
