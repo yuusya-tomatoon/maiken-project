@@ -15,7 +15,19 @@
   flex-direction: column;
   align-items: center;
   /* 位置調整のため、relativeを追加 */
-  position: relative;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  height: 100vh;
+
+  transform: translateX(-100%);
+  transition: transform 0.3s ease-in-out;
+}
+
+.sidebar-container.open {
+  transform: translateX(0);
+  /* 画面内に移動して表示 */
 }
 
 
@@ -25,7 +37,8 @@
   cursor: pointer;
   padding: 0;
   /* 余白を削除 */
-  position: absolute;
+  position: fixed;
+  z-index: 1001;
   /* 絶対位置指定 */
   top: 10px;
   /* 上からの位置 */
