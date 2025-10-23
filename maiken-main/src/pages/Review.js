@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 // import { collection, addDoc, serverTimestamp } from 'firebase/firestore'; // 削除
 // import { db } from '../firebase'; // 削除
 
+// ★ デモ用のユーザーID (本来は認証情報から取得します)
+// (このIDは server.js の "userId" として渡されます)
+const currentUserId = 'user_test_001';
+
 const Review = ({ setCurrentPage }) => {
   const [reviewData, setReviewData] = useState({
     comment: ''
@@ -28,18 +32,21 @@ const Review = ({ setCurrentPage }) => {
         },
         body: JSON.stringify({
           comment: reviewData.comment,
+          userId: currentUserId // ★ 修正: 不足していた userId を追加
         }),
       });
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // ★ サーバーからの具体的なエラーメッセージを取得して表示
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
 
       console.log('レビューデータが正常にサーバー経由で保存されました。');
       setIsCompleted(true);
     } catch (error) {
       console.error('データの保存中にエラーが発生しました:', error);
-      alert('レビューの登録に失敗しました。');
+      alert(`レビューの登録に失敗しました: ${error.message}`); // ★ エラーメッセージをアラートに表示
     }
   };
 
