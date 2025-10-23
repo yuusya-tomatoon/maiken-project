@@ -1,6 +1,9 @@
+// src/components/Sidebar.js
+
 import React from 'react';
 
-const Sidebar = ({ currentPage, setCurrentPage, toggleSidebar }) => {
+// 🔴 変更点: propsとして isOpen を追加 🔴
+const Sidebar = ({ currentPage, setCurrentPage, toggleSidebar, isOpen }) => {
   const sidebarItems = [
     { id: 'about', label: '説明・使い方' },
     { id: 'calendar', label: 'カレンダー機能' },
@@ -9,7 +12,8 @@ const Sidebar = ({ currentPage, setCurrentPage, toggleSidebar }) => {
   ];
 
   return (
-    <div className="sidebar-container">
+    // 🔴 変更点: isOpenがtrueの場合に 'open' クラスを追加 🔴
+    <div className={`sidebar-container ${isOpen ? 'open' : ''}`}>
       <button onClick={toggleSidebar} className="hamburger-menu">
         <span></span>
         <span></span>

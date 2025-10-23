@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react'; // useEffectを追加
+// src/App.js
+
+import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import About from './pages/About';
 import Calendar from './pages/Calendar';
@@ -111,7 +113,8 @@ function App() {
 
 
   return (
-    <div className="app-container">
+    // 🔴 修正点1: app-containerに状態クラスを追加（メインコンテンツの調整用）
+    <div className={`app-container ${isSidebarOpen ? 'sidebar-open' : ''}`}>
       {/* ★ 接続状態に応じてバナーを表示 */}
       {serverStatus === 'offline' && (
         <div style={{ ...statusBannerStyle, backgroundColor: '#e74c3c' /* 赤 */ }}>
@@ -124,19 +127,25 @@ function App() {
         </div>
       )}
 
-      {isSidebarOpen ? (
-        <Sidebar
-          currentPage={currentPage}
-          setCurrentPage={setCurrentPage}
-          toggleSidebar={toggleSidebar}
-        />
-      ) : (
+      {/* 🔴 修正点2: isSidebarOpenの条件分岐を外し、Sidebarを常にレンダリングする 🔴 */}
+      <Sidebar
+        currentPage={currentPage}
+        setCurrentPage={setCurrentPage}
+        toggleSidebar={toggleSidebar}
+        // 🔴 必須: isOpen propをSidebarに渡し、CSSアニメーションを制御させる 🔴
+        isOpen={isSidebarOpen}
+      />
+
+      {/* 🔴 修正点3: 閉じた状態のハンバーガーメニューは、サイドバーが閉じてるときだけ表示 */}
+      {/* (サイドバーを開くためのボタン) */}
+      {!isSidebarOpen && (
         <button onClick={toggleSidebar} className="hamburger-menu-closed">
           <span></span>
           <span></span>
           <span></span>
         </button>
       )}
+
       <div className="main-content" style={{ paddingTop: serverStatus !== 'online' ? '50px' : '0' }}>
         {renderPage()}
       </div>
