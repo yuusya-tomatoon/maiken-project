@@ -9,7 +9,6 @@ const admin = require("firebase-admin");
 const cron = require("node-cron");
 
 // 2. Firebase Admin SDKの初期化
-// 注意: serviceAccountKey.jsonファイルがserver.jsと同じ階層にあることを確認してください
 let serviceAccount;
 let db; // dbをグローバルスコープで宣言
 try {
@@ -17,10 +16,10 @@ try {
     admin.initializeApp({
         credential: admin.credential.cert(serviceAccount)
     });
-    db = admin.firestore(); // 初期化成功時にdbを代入
+    db = admin.firestore(); // 初期化成功時にdbを代入
 } catch (e) {
     console.error("Firebase Admin SDKの初期化に失敗しました。serviceAccountKey.jsonファイルが存在し、内容が正しいか確認してください。");
-    console.error(e); // エラー詳細を出力
+    console.error(e); // エラー詳細を出力
     process.exit(1); // ★ 初期化失敗時はサーバーを起動せずに終了
 }
 
@@ -31,6 +30,7 @@ const port = 3000;
 app.use(cors());
 app.use(express.json());
 
+// ... (Multerのセットアップは変更なし)
 const uploadDir = "uploads";
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir);
@@ -45,20 +45,44 @@ const storage = multer.diskStorage({
         cb(null, randomName + ext);
     },
 });
-
-// ★ ファイルタイプの検証を追加
 const fileFilter = (req, file, cb) => {
-  const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-  if (allowedMimes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('許可されていないファイルタイプです。 (jpeg, png, gif, webpのみ)'), false);
-  }
+  const allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  if (allowedMimes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('許可されていないファイルタイプです。 (jpeg, png, gif, webpのみ)'), false);
+  }
 };
-
 const upload = multer({ storage: storage, fileFilter: fileFilter });
 
+
+// ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+// ★ 新規追加: Firebase認証ミドルウェア
+// ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+// React側から送られてくる `Authorization: Bearer <ID_TOKEN>` ヘッダーを検証する
+const authMiddleware = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).send({ message: '認証トークンが必要です。' });
+  }
+
+  const idToken = authHeader.split('Bearer ')[1];
+  try {
+    // トークンを検証
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    // 検証済みのユーザー情報を req.user に格納
+    req.user = decodedToken; // (decodedToken には uid, email などが含まれる)
+    next(); // 次の処理（API本体）へ進む
+  } catch (error) {
+    console.error("IDトークンの検証に失敗しました:", error);
+    res.status(403).send({ message: '認証に失敗しました。無効なトークンです。' });
+  }
+};
+
+
 // --- 4. APIエンドポイントの定義 ---
+
+// ... (GET系APIは変更なし)
 
 /**
  * サーバーの生存確認 (ヘルスチェック) を行うAPI
@@ -66,7 +90,6 @@ const upload = multer({ storage: storage, fileFilter: fileFilter });
 app.get("/health", (req, res) => {
     res.status(200).json({ status: "ok" });
 });
-
 
 /**
  * すべての献立データを取得するAPI (カレンダー表示用)
@@ -100,7 +123,6 @@ app.get("/meals/:mealId", async (req, res) => {
     }
 });
 
-
 /**
  * 特定献立のコメント一覧を取得するAPI (コメント表示用)
  */
@@ -115,7 +137,6 @@ app.get("/meals/:mealId/comments", async (req, res) => {
         res.status(500).send({ message: "コメントデータの取得中にエラーが発生しました。" });
     }
 });
-
 
 /**
  * すべてのレビュー(評価)データを取得するAPI (評価一覧表示用)
@@ -134,23 +155,23 @@ app.get("/reviews", async (req, res) => {
 
 
 /**
- * 新しいレビューを登録するAPI
- * ★ 修正: userId も受け取り、保存するように変更
- */
-app.post("/reviews", async (req, res) => {
+ * 新しいレビューを登録するAPI
+ * ★ 修正: 認証ミドルウェア(authMiddleware)を追加
+ */
+app.post("/reviews", authMiddleware, async (req, res) => { // ★ 認証ミドルウェアを追加
     try {
-        // ★ Review.jsから送信されるデータ { comment: string, userId: string }
-        const { comment, userId } = req.body; // ★ userId を追加
+        const { comment } = req.body; // ★ userId は削除
+        const userId = req.user.uid; // ★ 認証済みユーザーのID (ミドルウェアから取得)
 
-        if (!comment || !userId) { // ★ userId のチェックを追加
-            return res.status(400).send({ message: "コメント(comment)とuserIdが不足しています。" });
+        if (!comment) { // ★ userId のチェックは不要 (ミドルウェアが保証)
+            return res.status(400).send({ message: "コメント(comment)が不足しています。" });
         }
 
         const docRef = await db.collection("reviews").add({
             comment,
-            userId: userId, // ★ userId を保存
-            likeCount: 0,   // ★ いいね機能のため初期値を追加
-            likedBy: [],    // ★ いいね機能のため初期値を追加
+            userId: userId, // ★ 認証済みのIDを保存
+            likeCount: 0,
+            likedBy: [],
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
         res.status(201).send({ message: "レビューを登録しました。", reviewId: docRef.id });
@@ -161,18 +182,13 @@ app.post("/reviews", async (req, res) => {
 });
 
 /**
- * ★ 新規追加: レビューにいいねを追加/削除するAPI
- * (Comments.js のいいねボタンから呼び出されます)
- */
-app.post("/reviews/:reviewId/like", async (req, res) => {
+ * レビューにいいねを追加/削除するAPI
+ * ★ 修正: 認証ミドルウェア(authMiddleware)を追加
+ */
+app.post("/reviews/:reviewId/like", authMiddleware, async (req, res) => { // ★ 認証ミドルウェアを追加
     const { reviewId } = req.params;
-    const { userId } = req.body; // ★ 本来は認証ミドルウェア(req.user.uid)から取得
+    const userId = req.user.uid; // ★ 認証済みユーザーのID (ミドルウェアから取得)
 
-    if (!userId) {
-        return res.status(400).send({ message: "ユーザーIDが必要です。" });
-    }
-
-    // ★ いいね対象のコレクションを "reviews" に変更
     const reviewRef = db.collection("reviews").doc(reviewId);
 
     try {
@@ -209,22 +225,22 @@ app.post("/reviews/:reviewId/like", async (req, res) => {
 
 
 /**
- * 新しい自己評価を登録するAPI (新規追加)
- * ★ 修正: userId と mealId も受け取る
+ * 新しい自己評価を登録するAPI
+ * ★ 修正: 認証ミドルウェア(authMiddleware)を追加
  */
-app.post("/evaluations", async (req, res) => {
+app.post("/evaluations", authMiddleware, async (req, res) => { // ★ 認証ミドルウェアを追加
     try {
-        // ★ MyEvaluation.jsから送信されるデータ { foodAmounts: object, userId: string, mealId: string }
-        const { foodAmounts, userId, mealId } = req.body; // ★ userId, mealId を追加
+        const { foodAmounts, mealId } = req.body; // ★ userId は削除
+        const userId = req.user.uid; // ★ 認証済みユーザーのID (ミドルウェアから取得)
 
-        if (!foodAmounts || Object.keys(foodAmounts).length === 0 || !userId || !mealId) {
-            return res.status(400).send({ message: "必須項目が不足しています。(foodAmounts, userId, mealId)" });
-        }
+        if (!foodAmounts || Object.keys(foodAmounts).length === 0 || !mealId) {
+            return res.status(400).send({ message: "必須項目が不足しています。(foodAmounts, mealId)" });
+A       }
 
         const docRef = await db.collection("evaluations").add({
             foodAmounts,
-            userId: userId,   // ★ 誰の評価か
-            mealId: mealId,   // ★ どの献立か
+            userId: userId,   // ★ 認証済みのIDを保存
+            mealId: mealId,   // ★ どの献立か
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
         res.status(201).send({ message: "自己評価を登録しました。", evaluationId: docRef.id });
@@ -235,37 +251,34 @@ app.post("/evaluations", async (req, res) => {
 });
 
 
-// --- 既存のAPIエンドポイント ---
+// --- 献立関連 (認証必須) ---
 
 /**
  * 新しい献立を登録するAPI
- * ★ 修正: Multerのエラーハンドリングを追加
+ * ★ 修正: 認証ミドルウェア(authMiddleware)をMulterハンドリングの前に追加
  */
-app.post("/meals", (req, res, next) => {
-    // upload.single のエラーをキャッチ
-    upload.single("image")(req, res, (err) => {
-        if (err instanceof multer.MulterError) {
-            // Multer由来のエラー (例: ファイルサイズ超過など)
-            return res.status(400).send({ message: "ファイルアップロードエラー: " + err.message });
-        } else if (err) {
-            // fileFilter で拒否された場合のエラー
-            return res.status(400).send({ message: err.message });
-        }
-        
-        // ファイルがない場合のエラー
-        if (!req.file) {
-            return res.status(400).send({ message: "画像ファイルが選択されていません。" });
-        }
-        next(); // エラーがなければ次のミドルウェア (async (req, res) => ...) へ
-    });
+app.post("/meals", authMiddleware, (req, res, next) => { // ★ 認証ミドルウェアを追加
+    // upload.single のエラーをキャッチ
+    upload.single("image")(req, res, (err) => {
+        if (err instanceof multer.MulterError) {
+            return res.status(400).send({ message: "ファイルアップロードエラー: " + err.message });
+        } else if (err) {
+            return res.status(400).send({ message: err.message });
+        }
+        if (!req.file) {
+            return res.status(400).send({ message: "画像ファイルが選択されていません。" });
+        }
+        next(); // 次の処理へ
+    });
 }, async (req, res) => {
-    // if (!req.file) ... は上で処理済み
     const mealData = JSON.parse(req.body.mealData);
     const imageUrl = `${req.protocol}://${req.get("host")}/uploads/${req.file.filename}`;
+    const userId = req.user.uid; // ★ 認証済みユーザーのID (ミドルウェアから取得)
 
     try {
         const docRef = await db.collection("meals").add({
-            ...mealData,
+            ...mealData,   // (クライアント側は mealData に userId を含めないこと)
+            userId: userId,   // ★ 誰が登録した献立か
             imageUrl: imageUrl,
             likeCount: 0,
             likedBy: [],
@@ -276,18 +289,16 @@ app.post("/meals", (req, res, next) => {
     } catch (error) {
         console.error("Firestore Error:", error);
         res.status(500).send({ message: "データベースへの保存中にエラーが発生しました。" });
-S   }
+    }
 });
 
 /**
  * 献立にいいねを追加/削除するAPI
+ * ★ 修正: 認証ミドルウェア(authMiddleware)を追加
  */
-app.post("/meals/:mealId/like", async (req, res) => {
+app.post("/meals/:mealId/like", authMiddleware, async (req, res) => { // ★ 認証ミドルウェアを追加
     const { mealId } = req.params;
-    const { userId } = req.body; // ★ 本来は認証ミドルウェア(req.user.uid)から取得
-    if (!userId) {
-        return res.status(400).send({ message: "ユーザーIDが必要です。" });
-    }
+    const userId = req.user.uid; // ★ 認証済みユーザーのID (ミドルウェアから取得)
 
     const mealRef = db.collection("meals").doc(mealId);
     try {
@@ -318,21 +329,24 @@ app.post("/meals/:mealId/like", async (req, res) => {
 
 /**
  * 献立にコメントを投稿するAPI
+ * ★ 修正: 認証ミドルウェア(authMiddleware)を追加
  */
-app.post("/meals/:mealId/comments", async (req, res) => {
+app.post("/meals/:mealId/comments", authMiddleware, async (req, res) => { // ★ 認証ミドルウェアを追加
     const { mealId } = req.params;
-    const { userId, text } = req.body; // ★ 本来は認証ミドルウェア(req.user.uid)から取得
-    if (!userId || !text) {
-        return res.status(400).send({ message: "ユーザーIDとコメント本文が必要です。" });
+    const { text } = req.body; // ★ userId は削除
+    const userId = req.user.uid; // ★ 認証済みユーザーのID (ミドルウェアから取得)
+
+    if (!text) {
+        return res.status(400).send({ message: "コメント本文が必要です。" });
     }
 
     const commentRef = db.collection("meals").doc(mealId).collection("comments");
     try {
         const docRef = await commentRef.add({
-            userId: userId,
+            userId: userId, // ★ 認証済みのIDを保存
             text: text,
-            likeCount: 0, // ★ いいね機能のため初期値を追加
-            likedBy: [],  // ★ いいね機能のため初期値を追加
+            likeCount: 0,
+            likedBy: [],
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
         });
         res.status(201).send({ message: "コメントを投稿しました。", commentId: docRef.id });
@@ -344,14 +358,11 @@ app.post("/meals/:mealId/comments", async (req, res) => {
 
 /**
  * 献立のコメントにいいねを追加/削除するAPI
+ * ★ 修正: 認証ミドルウェア(authMiddleware)を追加
  */
-app.post("/meals/:mealId/comments/:commentId/like", async (req, res) => {
+app.post("/meals/:mealId/comments/:commentId/like", authMiddleware, async (req, res) => { // ★ 認証ミドルウェアを追加
     const { mealId, commentId } = req.params;
-    const { userId } = req.body; // ★ 本来は認証ミドルウェア(req.user.uid)から取得
-
-    if (!userId) {
-        return res.status(400).send({ message: "ユーザーIDが必要です。" });
-    }
+    const userId = req.user.uid; // ★ 認証済みユーザーのID (ミドルウェアから取得)
 
     const commentRef = db.collection("meals").doc(mealId).collection("comments").doc(commentId);
 
@@ -389,12 +400,13 @@ app.post("/meals/:mealId/comments/:commentId/like", async (req, res) => {
 
 
 // --- 5. 定期的なアーカイブ処理 ---
+// (変更なし)
 cron.schedule('0 3 * * *', async () => {
     console.log('アーカイブ処理を開始します...');
     const archivePeriodDays = 30; // 30日経過したものをアーカイブ
     const now = new Date();
     const archiveDate = new Date(now.setDate(now.getDate() - archivePeriodDays));
-    const archiveTimestamp = admin.firestore.Timestamp.fromDate(archiveDate);
+    const archiveTimestamp = admin.firestore.Timestamp.fromDate(archiveDate);
 
     const mealsToArchive = db.collection('meals')
         .where('isArchived', '==', false)
