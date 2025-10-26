@@ -1,17 +1,49 @@
 import React, { useState, useEffect } from 'react';
 import './Comments.css'; // 以前のCSSを流用（必要に応じて調整してください）
+// ★ Firebaseモジュールをインポート
+// ★ 修正: getApp, getApps を追加 (重複初期化エラー 'app/duplicate-app' 回避のため)
+import { initializeApp, getApp, getApps } from "firebase/app";
+import { getAuth, onAuthStateChanged } from "firebase/auth";
 
 // バックエンドサーバーのURL
 const API_URL = 'http://localhost:3000';
 
-// ★ 現在のユーザーID（デモ用）
-// 本来はログイン状態などから動的に取得します。
-const currentUserId = 'user_test_001';
+// ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+// ★ 修正: Review.js の設定を反映
+// ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+const firebaseConfig = {
+  apiKey: "AIzaSyChc6zo5ZH5QbGAdj9526jEeakvxaYg8js",
+  authDomain: "maiken-2025.firebaseapp.com",
+  projectId: "maiken-2025",
+  storageBucket: "maiken-2025.firebasestorage.app",
+  messagingSenderId: "106897039274",
+  appId: "1:106897039274:web:812bd77ce5f3518bc255d3",
+  measurementId: "G-58V56R0HSW"
+};
+
+// ★ 修正: Firebaseアプリを初期化 (重複エラー 'app/duplicate-app' を回避)
+// 既に[DEFAULT]アプリが初期化されていなければ初期化し、されていれば既存のものを取得する
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const auth = getAuth(app);
+
 
 function Comments() {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // ★ 認証用のState
+  const [currentUser, setCurrentUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // ★ 認証状態の監視
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+      setAuthLoading(false); // 認証状態が確定
+    });
+    return () => unsubscribe();
+  }, []);
 
   // コンポーネントが最初に表示されたときにレビューを取得する
   useEffect(() => {
@@ -38,32 +70,56 @@ function Comments() {
     return new Date(timestamp.seconds * 1000).toLocaleString('ja-JP');
   };
 
-  // ★ いいねボタンがクリックされたときの処理 (新規追加)
+  // ★ いいねボタンがクリックされたときの処理 (修正)
   const handleLikeClick = async (reviewId) => {
+    // ★ ログインチェック
+    if (!currentUser) {
+      alert("いいねをするにはログインが必要です。");
+      return;
+    }
+    setError(null); // エラーをリセット
+
     try {
+      // ★ IDトークンを取得
+      const idToken = await currentUser.getIdToken();
+
       // ★ サーバーに新しいAPIエンドポイントを呼び出す
       const response = await fetch(`${API_URL}/reviews/${reviewId}/like`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: currentUserId }),
+        headers: {
+          'Content-Type': 'application/json',
+          // ★ 認証ヘッダーを追加
+          'Authorization': `Bearer ${idToken}`
+        },
+        // ★ body: JSON.stringify({ userId: ... }) は削除 (サーバーがトークンから判断するため)
       });
 
+      // ★ 修正: エラーハンドリングを堅牢化
       if (!response.ok) {
-        throw new Error('いいねの更新に失敗しました。');
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        } else {
+          const errorText = await response.text();
+          console.error("Server returned non-JSON error:", errorText);
+          throw new Error(`サーバーが予期しない応答を返しました (Status: ${response.status})`);
+        }
       }
 
       // サーバーの更新が成功したら、フロントエンドの状態も即時更新
       setReviews(reviews.map(review => {
         if (review.id === reviewId) {
           const likedBy = review.likedBy || [];
-          const isLiked = likedBy.includes(currentUserId);
+          // ★ currentUserId を currentUser.uid に変更
+          const isLiked = likedBy.includes(currentUser.uid);
           const likeCount = review.likeCount || 0;
 
           return {
             ...review,
             likedBy: isLiked
-              ? likedBy.filter(id => id !== currentUserId)
-              : [...likedBy, currentUserId],
+              ? likedBy.filter(id => id !== currentUser.uid)
+              : [...likedBy, currentUser.uid],
             likeCount: isLiked ? likeCount - 1 : likeCount + 1,
           };
         }
@@ -76,9 +132,8 @@ function Comments() {
     }
   };
 
-
-  if (loading) return <div>レビューを読み込み中...</div>;
-  if (error) return <div style={{ color: 'red' }}>エラー: {error}</div>;
+  // ★ 認証読み込み中 + データ読み込み中
+  if (loading || authLoading) return <div>読み込み中...</div>;
 
   return (
     <div className="comments-container">
@@ -88,24 +143,24 @@ function Comments() {
         {reviews.length > 0 ? (
           reviews.map((review) => (
             <div key={review.id} className="comment-item">
-              {/* ★ ユーザーIDに応じてアバターのtitleを設定 */}
               <div className="comment-avatar" title={review.userId || '不明なユーザー'}></div>
               <div className="comment-content">
                 <div className="comment-header">
                   <span className="comment-user">
-                    {/* ★ review.userId を表示するように変更 */}
                     {review.userId || '(匿名レビュー)'}
                   </span>
                   <span className="comment-timestamp">{formatTimestamp(review.createdAt)}</span>
                 </div>
                 <p className="comment-text">{review.comment}</p>
                 
-                {/* ★ いいね機能のUIを追加 (新規追加) */}
                 <div className="comment-footer">
                   <button
-                    className={`like-button ${review.likedBy?.includes(currentUserId) ? 'liked' : ''}`}
+                    // ★ currentUserId を currentUser?.uid に変更 (未ログイン時も考慮)
+className={`like-button ${review.likedBy?.includes(currentUser?.uid) ? 'liked' : ''}`}
                     onClick={() => handleLikeClick(review.id)}
-                    title="いいね"
+          _         title="いいね"
+                    // ★ 未ログイン時はボタンを非活性化
+                    disabled={!currentUser} 
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                       <path d="m8 2.748-.717-.737C5.6.281 2.514.878 1.4 3.053c-1.113 2.175-.246 5.259 2.028 7.288l4.287 4.287a.5.5 0 0 0 .708 0l4.287-4.287c2.274-2.03 3.14-5.113 2.028-7.288-1.113-2.175-4.2-2.772-5.883-1.043L8 2.748zM8 15C-7.333 4.868 3.279-2.04 7.824 1.143c.06.055.119.112.176.171a3.12 3.12 0 0 1 .176-.17C12.72-2.042 23.333 4.867 8 15z"/>
