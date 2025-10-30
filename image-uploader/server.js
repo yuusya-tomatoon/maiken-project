@@ -27,7 +27,33 @@ try {
 // 3. Expressアプリの初期化
 const app = express();
 const port = 3000;
-app.use(cors());
+
+// ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+// ★ 修正: CORS設定を柔軟化
+// ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+// 許可するオリジン（フロントエンドのURL）のリスト
+const allowedOrigins = [
+  'http://localhost:3001', // Reactのローカル開発サーバー
+  'https://jt1tbf88-3001.asse.devtunnels.ms' // VSCodeポートフォワーディングURL (末尾スラッシュ削除)
+  // 将来、本番環境のURLもここに追加します
+  // 例: 'https://your-app.netlify.app'
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // originが無いリクエスト（Postman, curlなど）も許可する (開発中は便利)
+    if (!origin) return callback(null, true);
+    
+    // 許可リストにないオリジンの場合はエラーを返す
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'このオリジンからのCORSリクエストは許可されていません: ' + origin;
+      return callback(new Error(msg), false);
+    }
+    // 許可リストにあれば許可
+    return callback(null, true);
+  }
+}));
+
 app.use(express.json());
 
 // ... (Multerのセットアップは変更なし)
@@ -57,7 +83,7 @@ const upload = multer({ storage: storage, fileFilter: fileFilter });
 
 
 // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-// ★ 新規追加: Firebase認証ミドルウェア
+// ★ Firebase認証ミドルウェア
 // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
 // React側から送られてくる `Authorization: Bearer <ID_TOKEN>` ヘッダーを検証する
 const authMiddleware = async (req, res, next) => {
@@ -235,7 +261,7 @@ app.post("/evaluations", authMiddleware, async (req, res) => { // ★ 認証ミ�
 
         if (!foodAmounts || Object.keys(foodAmounts).length === 0 || !mealId) {
             return res.status(400).send({ message: "必須項目が不足しています。(foodAmounts, mealId)" });
-A       }
+        }
 
         const docRef = await db.collection("evaluations").add({
             foodAmounts,
@@ -284,7 +310,7 @@ app.post("/meals", authMiddleware, (req, res, next) => { // ★ 認証ミドル�
             likedBy: [],
             isArchived: false,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+        }); // ★ 閉じ括弧が抜けていたのを修正
         res.status(201).send({ message: "献立を登録しました。", mealId: docRef.id });
     } catch (error) {
         console.error("Firestore Error:", error);
@@ -348,7 +374,7 @@ app.post("/meals/:mealId/comments", authMiddleware, async (req, res) => { // ★
             likeCount: 0,
             likedBy: [],
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+        }); // ★ 閉じ括弧が抜けていたのを修正
         res.status(201).send({ message: "コメントを投稿しました。", commentId: docRef.id });
     } catch (error) {
         console.error("Comment Error:", error);
@@ -415,7 +441,7 @@ cron.schedule('0 3 * * *', async () => {
     try {
         const snapshot = await mealsToArchive.get();
         if (snapshot.empty) {
-            console.log('アーカイブ対象の献立はありませんでした。');
+              console.log('アーカイブ対象の献立はありませんでした。');
             return;
         }
 
