@@ -5,8 +5,8 @@ import './Comments.css'; // 以前のCSSを流用（必要に応じて調整し�
 import { initializeApp, getApp, getApps } from "firebase/app";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 
-// バックエンドサーバーのURL
-const API_URL = 'http://localhost:3000';
+// ★ 削除: ハードコードされたAPI_URLは削除
+// const API_URL = 'https://jt1tbf88-3000.asse.devtunnels.ms/'; 
 
 // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
 // ★ 修正: Review.js の設定を反映
@@ -27,7 +27,8 @@ const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
 
 
-function Comments() {
+// ★ 修正: propsで apiUrl を受け取る
+function Comments({ apiUrl }) { 
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -48,9 +49,19 @@ function Comments() {
   // コンポーネントが最初に表示されたときにレビューを取得する
   useEffect(() => {
     const fetchReviews = async () => {
+      // ★ apiUrl が渡されるまで待機 (念のため)
+      if (!apiUrl) {
+        setLoading(false); // apiUrlがなければローディングを終了
+        setError("API URLが設定されていません。");
+        return;
+      }
+      setLoading(true); // apiUrlがあればローディング開始
+      setError(null);
+
       try {
         // server.jsの /reviews エンドポイントを呼び出す
-        const response = await fetch(`${API_URL}/reviews`);
+        // ★ 修正: propsの apiUrl を使用
+        const response = await fetch(`${apiUrl}/reviews`); 
         if (!response.ok) {
           throw new Error('レビューの取得に失敗しました。');
         }
@@ -63,7 +74,7 @@ function Comments() {
       }
     };
     fetchReviews();
-  }, []); // 依存配列は空。マウント時に1回だけ実行
+  }, [apiUrl]); // ★ apiUrl が変更された場合も再取得
 
   const formatTimestamp = (timestamp) => {
     if (!timestamp || !timestamp.seconds) return '';
@@ -72,6 +83,9 @@ function Comments() {
 
   // ★ いいねボタンがクリックされたときの処理 (修正)
   const handleLikeClick = async (reviewId) => {
+    // ★ apiUrl がなければ何もしない
+    if (!apiUrl) return;
+
     // ★ ログインチェック
     if (!currentUser) {
       alert("いいねをするにはログインが必要です。");
@@ -84,7 +98,8 @@ function Comments() {
       const idToken = await currentUser.getIdToken();
 
       // ★ サーバーに新しいAPIエンドポイントを呼び出す
-      const response = await fetch(`${API_URL}/reviews/${reviewId}/like`, {
+      // ★ 修正: propsの apiUrl を使用
+      const response = await fetch(`${apiUrl}/reviews/${reviewId}/like`, { 
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -94,17 +109,17 @@ function Comments() {
         // ★ body: JSON.stringify({ userId: ... }) は削除 (サーバーがトークンから判断するため)
       });
 
-      // ★ 修正: エラーハンドリングを堅牢化
+      // ★ 修正: エラーハンドリングを堅牢化
       if (!response.ok) {
-        const contentType = response.headers.get("content-type");
-        if (contentType && contentType.indexOf("application/json") !== -1) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-        } else {
-          const errorText = await response.text();
-          console.error("Server returned non-JSON error:", errorText);
-          throw new Error(`サーバーが予期しない応答を返しました (Status: ${response.status})`);
-        }
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.indexOf("application/json") !== -1) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        } else {
+          const errorText = await response.text();
+          console.error("Server returned non-JSON error:", errorText);
+          throw new Error(`サーバーが予期しない応答を返しました (Status: ${response.status})`);
+        }
       }
 
       // サーバーの更新が成功したら、フロントエンドの状態も即時更新
@@ -156,9 +171,9 @@ function Comments() {
                 <div className="comment-footer">
                   <button
                     // ★ currentUserId を currentUser?.uid に変更 (未ログイン時も考慮)
-className={`like-button ${review.likedBy?.includes(currentUser?.uid) ? 'liked' : ''}`}
+                      className={`like-button ${review.likedBy?.includes(currentUser?.uid) ? 'liked' : ''}`}
                     onClick={() => handleLikeClick(review.id)}
-          _         title="いいね"
+                    title="いいね"
                     // ★ 未ログイン時はボタンを非活性化
                     disabled={!currentUser} 
                   >
@@ -173,7 +188,8 @@ className={`like-button ${review.likedBy?.includes(currentUser?.uid) ? 'liked' :
             </div>
           ))
         ) : (
-          <p>まだレビューはありません。</p>
+          // ★ ローディング中でない場合のみ表示
+          !loading && <p>まだレビューはありません。</p>
         )}
       </div>
     </div>
