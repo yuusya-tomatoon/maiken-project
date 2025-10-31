@@ -29,28 +29,38 @@ const app = express();
 const port = 3000;
 
 // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-// ★ 修正: CORS設定を柔軟化
+// ★ 修正: CORS設定を柔軟化（動的な devtunnels URL に対応）
 // ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-// 許可するオリジン（フロントエンドのURL）のリスト
+// 許可するオリジン（フロントエンドのURL）のリスト (固定のもの)
 const allowedOrigins = [
   'http://localhost:3001', // Reactのローカル開発サーバー
-  'https://jt1tbf88-3001.asse.devtunnels.ms' // VSCodeポートフォワーディングURL (末尾スラッシュ削除)
+  // 'https://jt1tbf88-3001.asse.devtunnels.ms' // 古いURL。動的にチェックするため削除
   // 将来、本番環境のURLもここに追加します
   // 例: 'https://your-app.netlify.app'
 ];
 
+// 動的なVSCodeトンネルURLを許可するための正規表現
+// https://[任意の文字列]-3001.asse.devtunnels.ms を許可します
+const devTunnelsRegex = /^https:\/\/[a-zA-Z0-9]+-3001\.asse\.devtunnels\.ms$/;
+
 app.use(cors({
   origin: function (origin, callback) {
-    // originが無いリクエスト（Postman, curlなど）も許可する (開発中は便利)
+    // 1. originが無いリクエスト（Postman, curlなど）も許可する (開発中は便利)
     if (!origin) return callback(null, true);
     
-    // 許可リストにないオリジンの場合はエラーを返す
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'このオリジンからのCORSリクエストは許可されていません: ' + origin;
-      return callback(new Error(msg), false);
+    // 2. 許可リストにあるかチェック
+    if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
     }
-    // 許可リストにあれば許可
-    return callback(null, true);
+    
+    // 3. 動的な devtunnels URL にマッチするかチェック
+    if (devTunnelsRegex.test(origin)) {
+        return callback(null, true);
+    }
+
+    // 許可リストにないオリジンの場合はエラーを返す
+    const msg = 'このオリジンからのCORSリクエストは許可されていません: ' + origin;
+    return callback(new Error(msg), false);
   }
 }));
 
@@ -256,7 +266,7 @@ app.post("/reviews/:reviewId/like", authMiddleware, async (req, res) => { // ★
  */
 app.post("/evaluations", authMiddleware, async (req, res) => { // ★ 認証ミドルウェアを追加
     try {
-        const { foodAmounts, mealId } = req.body; // ★ userId は削除
+        const { foodAmounts, mealId } = req.body; // ★ mealId はフロント側で生成されることを想定
         const userId = req.user.uid; // ★ 認証済みユーザーのID (ミドルウェアから取得)
 
         if (!foodAmounts || Object.keys(foodAmounts).length === 0 || !mealId) {
