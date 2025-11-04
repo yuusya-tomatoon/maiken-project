@@ -11,8 +11,8 @@ import Comments from './pages/Comments';
 import './App.css';
 
 // ★ サーバーのURLを定数として定義
-// ★ 修正: 安定したローカルホストURLに変更
-const API_URL = 'https://lkh70tp1-3000.asse.devtunnels.ms'; // ★★★ 修正箇所: 安定したローカルホストを使用 ★★★
+// ★ 修正: 末尾のスラッシュを削除
+const API_URL = 'https://jt1tbf88-3000.asse.devtunnels.ms';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('about');
@@ -96,17 +96,13 @@ function App() {
           />
         );
       case 'myEvaluation':
-        // ★ 修正: MyEvaluation に API_URL と mainScreenState を渡す
-        return <MyEvaluation 
-             setCurrentPage={setCurrentPage} 
-             apiUrl={API_URL} 
-             mainScreenState={mainScreenState} // ★ 追加
-           />;
+        // ★ MyEvaluation に API_URL を渡す (MyEvaluation.js側も修正が必要)
+        return <MyEvaluation setCurrentPage={setCurrentPage} apiUrl={API_URL} />;
       case 'review':
-        // ★ Review に API_URL を渡す
+        // ★ Review に API_URL を渡す (Review.js側も修正が必要)
         return <Review setCurrentPage={setCurrentPage} apiUrl={API_URL} />;
       case 'comments':
-        // ★ Comments に API_URL を渡す
+        // ★ Comments に API_URL を渡す (Comments.js側も修正が必要)
         return <Comments apiUrl={API_URL} />;
       default:
         return <About />;
