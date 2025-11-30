@@ -1,0 +1,67 @@
+# .github/workflows/deploy.yml
+# ファイル名を変更して、CIとデプロイを分けることを推奨します。
+
+name: Deploy React App to GitHub Pages
+
+on:
+  push:
+    # main ブランチへのプッシュ時に実行
+    branches: ["main"]
+  workflow_dispatch: # GitHub Actionsの画面から手動実行を可能にする
+
+# 権限を設定 (Pagesへの書き込み権限を与える)
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build-and-deploy: # ジョブ名を修正
+
+    runs-on: ubuntu-latest
+
+    # CIのマトリックスを削除し、単一の安定したNodeバージョンで実行
+    # steps: の中で直接 node-version: 20.x を使用します。
+
+    steps:
+      # 1. コードのチェックアウト
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      
+      # 2. Node.js環境のセットアップ
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x' # 安定版の単一バージョンに固定
+          cache: 'npm'
+      
+      # 3. 依存関係のインストール (npm ci はロックファイルを使うため推奨)
+      - name: Install Dependencies
+        run: npm ci
+      
+      # 4. Reactアプリのビルド (最も重要)
+      # --if-present は、buildスクリプトが package.json に存在する場合にのみ実行されます。
+      - name: Build React App
+        run: npm run build
+      
+      # ★★★★★ ここから GitHub Pages へのデプロイステップを追加 ★★★★★
+
+      # 5. GitHub Pagesのセットアップ
+      - name: Setup GitHub Pages Environment
+        uses: actions/configure-pages@v4
+
+      # 6. ビルド成果物 (buildフォルダ) のアップロード
+      - name: Upload Build Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Reactのビルドフォルダを指定
+          path: './build' 
+
+      # 7. GitHub Pagesへのデプロイ実行
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+        
+      # 8. （オプション）テストの実行はデプロイ後に配置
+      # - name: Run Tests
+      #   run: npm test
