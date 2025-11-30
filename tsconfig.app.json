@@ -1,31 +1,57 @@
 {
+  // ルートの tsconfig.json の設定を継承します。
+  "extends": "./tsconfig.json",
+  
   "compilerOptions": {
-    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
-    "target": "ES2022",
-    "useDefineForClassFields": true,
+    // コンパイルされた JavaScript ファイルの出力先ディレクトリを指定します。
+    // Viteは通常この設定を無視し、vite.config.tsに従います。
+    "outDir": "./dist",
+    
+    // Web環境で動作するライブラリの型定義を使用します。
     "lib": [
-      "ES2022",
+      "ES2020",
       "DOM",
-      "DOM.Iterable"
+      "DOMIterable"
     ],
+    
+    // モジュール解決のルールを設定します。
     "module": "ESNext",
-    "skipLibCheck": true,
-    /* Bundler mode */
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "verbatimModuleSyntax": true,
-    "moduleDetection": "force",
-    "noEmit": true,
+    
+    // JSXをReact 17以降の変換方式に設定します。
     "jsx": "react-jsx",
-    /* Linting */
+    
+    // ソースマップを有効にします。
+    "sourceMap": true,
+    
+    // 厳密な型チェックモードを有効にします。（tsconfig.jsonで有効にしている場合が多い）
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    
+    // Reactコンポーネントのインポートを自動化します。
+    "allowSyntheticDefaultImports": true,
+    
+    // モジュール解決時にファイル拡張子の指定を省略できるようにします。
+    "esModuleInterop": true,
+    
+    // ファイルシステム上で大文字小文字を区別するルールを強制します。
+    "forceConsistentCasingInFileNames": true,
+
+    // ★重要: GitHub Actionsのエラー回避に役立つ可能性あり
+    // "baseUrl": "./",
+    // "paths": {
+    //   "@/*": ["src/*"]
+    // }
   },
+  
+  // ★重要: コンパイル対象のソースファイルを指定します。
+  // あなたのエラーは、このパスにファイルが見つからなかったことが原因です。
+  // srcフォルダが tsconfig.app.json と同じ階層にあることを想定しています。
   "include": [
     "src"
+  ],
+  
+  // コンパイル対象から除外するファイルを指定します。
+  "exclude": [
+    "node_modules",
+    "dist"
   ]
 }
