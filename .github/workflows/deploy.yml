@@ -1,0 +1,44 @@
+# .github/workflows/deploy.yml
+# ファイル名を変更して、CIとデプロイを分けることを推奨します。
+
+name: Deploy React App to GitHub Pages
+
+on:
+  push:
+    # main ブランチへのプッシュ時に実行
+    branches: ["main"]
+  workflow_dispatch: # GitHub Actionsの画面から手動実行を可能にする
+
+# 権限を設定 (Pagesへの書き込み権限を与える)
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # 1. コードのチェックアウト (最優先)
+      - name: Checkout Repository 
+        uses: actions/checkout@v4 # ★ このステップが必ず最初に成功していることを確認
+
+      # 2. Node.js環境のセットアップ
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20.x' 
+          cache: 'npm'
+      
+      # 3. 依存関係のインストール
+      - name: Install Dependencies
+        run: npm ci
+      
+      # 4. Reactアプリのビルド
+      - name: Build React App
+        # 実行前に、カレントディレクトリに tsconfig.app.json と src フォルダがあるか確認
+        # 確認用コマンドを追加:
+        run: |
+          ls -F
+          cat tsconfig.app.json
+          npm run build
